@@ -4,8 +4,8 @@
 
 ## 下载与加载
 
-请从本仓库 **[Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.07-zh-study4)** 下载预构建安装包，不用 Code → Download ZIP（那是需构建的源码）。
-两扩展统一包发布于 [asbplayer Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.07-zh-study4)。解压到固定目录，在 Chrome 扩展页启用开发者模式，分别“加载已解压的扩展”选择 `yomitan`、`asbplayer` 文件夹。不要同时启用商店原版，避免重复扫描或录音。
+请从本仓库 **[Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.08-zh-study5)** 下载预构建安装包，不用 Code → Download ZIP（那是需构建的源码）。
+两扩展统一包发布于 [asbplayer Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.08-zh-study5)。解压到固定目录，在 Chrome 扩展页启用开发者模式，分别“加载已解压的扩展”选择 `yomitan`、`asbplayer` 文件夹。不要同时启用商店原版，避免重复扫描或录音。
 
 新安装已预设中文界面、AnkiConnect `127.0.0.1:8766`、牌组 `外语::英语语境`、笔记类型 `外语语境卡` 和七个字段；不会迁移或覆盖旧扩展数据。Yomitan 随包提供增强 ECDICT 英语学习词典，首次入门/设置页会自动导入，请等待提示就绪。Chrome 首次加载/授权须人工确认。Anki Desktop 必须运行且安装 AnkiConnect；此包不自动改任意机器的 Anki 数据库。
 
@@ -38,3 +38,7 @@
 README 随每次发布更新下载入口、当前功能和未验证项，不保留并列“最终版”。临时计划已完成并移除，必要维护与验收说明集中于 `docs/personal-build.md`。
 
 本项目基于 [asbplayer/asbplayer](https://github.com/asbplayer/asbplayer)，感谢原作者及所有贡献者；原版权声明和 [许可证](LICENSE) 保持不变。定制代码继续遵守 AGPL-3.0。2026-10-07 修改包括中文显示层、英语制卡默认配置和独立扩展标识，不代表官方发布。完整对应源码可通过本仓库提交历史与 Release 源码下载获得。
+
+## study5 配套包
+
+Yomitan 更新为速览/词典/用法卡片，增加持久翻译缓存、模型与推理设置、有限学习偏好和主动收藏，补充 CC BY-SA 4.0 Wiktionary 英英词典。asbplayer 播放器代码与 1.22.0 产物不变；无需重新配置播放器。首次补充词典导入须等待就绪；新 Chrome 交互与完整字幕/制卡流程仍分别确认。完整说明见 [Yomitan 定制版](https://github.com/suifracti/yomitan)；统一包不含账号凭据或个人学习数据。
