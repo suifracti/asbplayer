@@ -77,7 +77,8 @@ export default defineConfig({
         const isDev = mode === 'development';
         const devLabel = isDev ? ' (Dev)' : '';
         const title = `${extName}${devLabel}`;
-        const name = `${title}: Language-learning with subtitles`;
+        const name = `${title} 中文学习版`;
+        const personalKey = fs.readFileSync(path.resolve(__dirname, '../localization/extension-public-key.txt'), 'utf8').trim();
 
         let manifest: UserManifest = {
             name,
@@ -200,7 +201,7 @@ export default defineConfig({
             const key = isDev
                 ? {}
                 : {
-                      key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxmdAa3ymqAjLms43ympXqtyuJnC2bSYh70+5ZZmtyx/MsnGhTEdfbqtsp3BKxHbv0rPd49+Joacm1Shik5/mCppZ0h4I4ISMm983X01H6p/hfAzQYAcnvw/ZQNHAv1QgY9JiuyTBirCDoYB50Fxol/kI/0EviYXuX83KoYpjB0VGP/ssY9ocT//fQUbRmeLDJnciry8y6MduWXHzseOP99axQIjeVsNTE30L4fRN+ppX3aOkG/RFJNx0eI02qbLul3qw5dUuBK5GgMbYftwjHnDoOegnZYFr1sxRO1zsgmxdp/6du75RiDPRJOkPCz2GTrw4CX2FCywbDZlqaIpwqQIDAQAB',
+                      key: personalKey,
                   };
 
             manifest = {
