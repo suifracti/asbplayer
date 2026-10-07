@@ -39,6 +39,8 @@ README 每次发布可更新，保留原作者出处、许可证、修改说明�
 - 本机 AnkiConnect 8766 再次只读确认模型七字段，不写入卡片。扩展权限与固定 key 不变；不操作 Chrome 用户配置、缓存或数据库。
 - README 随修复发布更新，第一版已知故障包撤回。用户固定安装目录由构建产物更新，之后需要用户在 Chrome 扩展页手动重新加载两扩展。
 
-## zh-study3 统一包维护
+## zh-study4 统一包维护
 
 本轮 asbplayer 运行代码和权限未变，沿用 zh-study2 构建；仅更新 README 与统一下载入口。Yomitan 卡片/增强词典的实现、重建与适配边界集中于 [Yomitan 构建维护说明](https://github.com/suifracti/yomitan/blob/main/docs/personal-build.md)，不在本仓库维护另一份实现状态。仍不声明真实视频截音、制卡或复习回流验收。
+
+统一 study4 包新增 Yomitan 精简查词与本机句子翻译组件；asbplayer 运行产物保持不变，未借此声明视频/制卡验收。桥的单一实现与测试说明见 [Yomitan 维护记录](https://github.com/suifracti/yomitan/blob/main/docs/personal-build.md)。

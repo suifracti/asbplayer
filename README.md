@@ -4,8 +4,8 @@
 
 ## 下载与加载
 
-请从本仓库 **[Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.07-zh-study3)** 下载预构建安装包，不用 Code → Download ZIP（那是需构建的源码）。
-两扩展统一包发布于 [asbplayer Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.07-zh-study3)。解压到固定目录，在 Chrome 扩展页启用开发者模式，分别“加载已解压的扩展”选择 `yomitan`、`asbplayer` 文件夹。不要同时启用商店原版，避免重复扫描或录音。
+请从本仓库 **[Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.07-zh-study4)** 下载预构建安装包，不用 Code → Download ZIP（那是需构建的源码）。
+两扩展统一包发布于 [asbplayer Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.07-zh-study4)。解压到固定目录，在 Chrome 扩展页启用开发者模式，分别“加载已解压的扩展”选择 `yomitan`、`asbplayer` 文件夹。不要同时启用商店原版，避免重复扫描或录音。
 
 新安装已预设中文界面、AnkiConnect `127.0.0.1:8766`、牌组 `外语::英语语境`、笔记类型 `外语语境卡` 和七个字段；不会迁移或覆盖旧扩展数据。Yomitan 随包提供增强 ECDICT 英语学习词典，首次入门/设置页会自动导入，请等待提示就绪。Chrome 首次加载/授权须人工确认。Anki Desktop 必须运行且安装 AnkiConnect；此包不自动改任意机器的 Anki 数据库。
 
@@ -18,7 +18,7 @@
 
 ## 当前版本：学习卡片与增强词典
 
-`zh-study3` 重做 Yomitan 查词卡片：圆角、浅/深色、内容自适应高度（可关闭或手动拖角），明确的“添加到 Anki / 播放发音 / 来源”按钮和独立设置入口。发音菜单使用中文说明，来源名称不标未经验证的口音或可用状态。
+`zh-study4` 重做 Yomitan 查词卡片：圆角、浅/深色、内容自适应高度（可关闭或手动拖角），明确的“添加到 Anki / 播放发音 / 来源”按钮和独立设置入口。发音菜单使用中文说明，来源名称不标未经验证的口音或可用状态。
 
 - 内置 ECDICT 770611 条：中文简释默认展示，英文解释、词形、考试标签和语料排名按需展开。保留原数据；可能陈旧或不完整，没有虚构例句、CEFR 或掌握状态。
 - 当前页面原句单独显示并高亮查词；外部 Wiktionary 链接用于另看更多释义，不把在线内容冒充随包离线例句。
