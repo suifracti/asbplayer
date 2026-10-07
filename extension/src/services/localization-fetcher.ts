@@ -15,6 +15,11 @@ export interface Localization {
 }
 
 export const fetchLocalization = async (lang: string): Promise<Localization> => {
+    // This fork ships a reviewed Chinese patch. Upstream cached language packs
+    // must not silently replace it; updating Chinese follows our own releases.
+    if (lang === 'zh_CN') {
+        return (await bundledStringsForLang(lang))!;
+    }
     if (import.meta.env.MODE === 'development') {
         return (await bundledStringsForLang(lang)) ?? (await bundledStringsForLang('en'))!;
     }
@@ -37,6 +42,9 @@ export const fetchSupportedLanguages = async (): Promise<string[]> => {
 };
 
 export const primeLocalization = async (lang: string): Promise<void> => {
+    if (lang === 'zh_CN') {
+        return;
+    }
     try {
         const config = await fetchExtensionConfig();
 

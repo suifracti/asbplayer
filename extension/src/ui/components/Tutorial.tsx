@@ -13,7 +13,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import IconButton from '@mui/material/IconButton';
-import { Trans } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import Link from '@mui/material/Link';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import type { AsbPlayerToVideoCommandV2, RequestSubtitlesMessage } from '@project/common';
@@ -198,6 +198,7 @@ const OverlayScrollBubble: React.FC<{ show: boolean; onConfirm: () => void }> = 
 };
 
 const FinishedDialog: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
+    const { t } = useTranslation();
     return (
         <Dialog open={open} style={{ zIndex: zIndexTop }}>
             <DialogContent>
@@ -215,7 +216,7 @@ const FinishedDialog: React.FC<{ open: boolean; onClose: () => void }> = ({ open
                 />
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose}>OK</Button>
+                <Button onClick={onClose}>{t('action.ok')}</Button>
             </DialogActions>
         </Dialog>
     );

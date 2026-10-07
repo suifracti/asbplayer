@@ -65,17 +65,32 @@ const WelcomeMessage: React.FC<{ className: string }> = ({ className }) => {
 
 const settingsProvider = new SettingsProvider(new ExtensionSettingsStorage());
 
-const useLangParam = () => {
+const useWelcomeLanguage = () => {
     const [lang, setLang] = useState<string>();
-    useEffect(() => setLang(new URLSearchParams(window.location.search).get('lang') ?? undefined), []);
+    useEffect(() => {
+        const explicitLanguage = new URLSearchParams(window.location.search).get('lang');
+        if (explicitLanguage) {
+            setLang(explicitLanguage);
+            return;
+        }
+        // The tutorial must use the same saved language as settings and the popup,
+        // not Chrome's UI language (which is often en-US even on a Chinese desktop).
+        void settingsProvider
+            .getSingle('language')
+            .then(setLang)
+            .catch((error) => {
+                asbError('ftue', 'Failed to load the language setting:', error);
+                setLang('zh_CN');
+            });
+    }, []);
     return lang;
 };
 
 const FtueUi = () => {
     const [themeType, setThemeType] = useState<PaletteMode>('dark');
     const theme = createTheme(themeType);
-    const langParam = useLangParam();
-    const { initialized: i18Initialized } = useI18n({ language: langParam ?? browser.i18n.getUILanguage() });
+    const language = useWelcomeLanguage();
+    const { initialized: i18Initialized } = useI18n({ language: language ?? 'zh_CN' });
     const classes = useStyles();
     const [showTutorial, setShowTutorial] = useState<boolean>(false);
     const [hideWelcomePanel, setHideWelcomePanel] = useState<boolean>(false);
@@ -100,7 +115,7 @@ const FtueUi = () => {
             .catch((error) => asbError('ftue', 'Failed to load the theme setting:', error));
     }, []);
 
-    if (!i18Initialized) {
+    if (!language || !i18Initialized) {
         return null;
     }
 
