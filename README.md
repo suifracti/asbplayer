@@ -4,8 +4,8 @@
 
 ## 下载与加载
 
-请从本仓库 **[Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.08-zh-study6)** 下载预构建安装包，不用 Code → Download ZIP（那是需构建的源码）。
-两扩展统一包发布于 [asbplayer Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.08-zh-study6)。解压到固定目录，在 Chrome 扩展页启用开发者模式，分别“加载已解压的扩展”选择 `yomitan`、`asbplayer` 文件夹。不要同时启用商店原版，避免重复扫描或录音。
+请从本仓库 **[Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.08-zh-study7)** 下载预构建安装包，不用 Code → Download ZIP（那是需构建的源码）。
+两扩展统一包发布于 [asbplayer Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.08-zh-study7)。解压到固定目录，在 Chrome 扩展页启用开发者模式，分别“加载已解压的扩展”选择 `yomitan`、`asbplayer` 文件夹。不要同时启用商店原版，避免重复扫描或录音。
 
 新安装已预设中文界面、AnkiConnect `127.0.0.1:8766`、牌组 `外语::英语语境`、笔记类型 `外语语境卡` 和七个字段；不会迁移或覆盖旧扩展数据。Yomitan 随包提供增强 ECDICT 英语学习词典，首次入门/设置页会自动导入，请等待提示就绪。Chrome 首次加载/授权须人工确认。Anki Desktop 必须运行且安装 AnkiConnect；此包不自动改任意机器的 Anki 数据库。
 
@@ -16,9 +16,9 @@
 - 视频语境制卡：使用 asbplayer 的制卡入口，或在 Yomitan 加词后用 asbplayer 更新上一张卡片补入音频/截图。普通查词制卡无需额外服务。
 - **高级词汇状态标色依赖额外 yomitan-api 本机组件，当前包不启用。** 已预设 Word 字段和目标牌组，但不把配置称为已完成 Anki 复习回流。21 天等“成熟”阈值是软件规则，不是真实掌握。
 
-## 当前配套版本：zh-study6
+## 当前配套版本：zh-study7
 
-统一包搭配 Yomitan 的短查词卡、保持打开的固定详解和缓存英英辅助中文。当前实现与验证只维护于 [Yomitan 说明](https://github.com/suifracti/yomitan/blob/main/docs/personal-build.md)，本仓库不复制另一份 UI 状态。
+统一包搭配 Yomitan 的同卡查词、原句/AI 解释和缓存英英辅助中文；学习内容不再打开额外页面，手动学习偏好已移除。当前实现与验证只维护于 [Yomitan 说明](https://github.com/suifracti/yomitan/blob/main/docs/personal-build.md)，本仓库不复制另一份 UI 状态。
 
 **asbplayer 1.22.0 运行代码、key/ID/权限与 zh-study2 构建均未改**，已经安装者只重载 Yomitan、刷新网页，无需重载或重新配置播放器。仍不宣称新版 Chrome、真实视频字幕/截音/制卡/复习回流已验收。Obsidian→Anki 完整保存路线尚未实现，收藏不是完整闭环。
 
