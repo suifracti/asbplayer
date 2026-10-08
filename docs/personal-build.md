@@ -44,3 +44,8 @@ README 每次发布可更新，保留原作者出处、许可证、修改说明�
 本轮 asbplayer 运行代码和权限未变，沿用 zh-study2 构建；仅更新 README 与统一下载入口。Yomitan 卡片/增强词典的实现、重建与适配边界集中于 [Yomitan 构建维护说明](https://github.com/suifracti/yomitan/blob/main/docs/personal-build.md)，不在本仓库维护另一份实现状态。仍不声明真实视频截音、制卡或复习回流验收。
 
 统一 study4 包新增 Yomitan 精简查词与本机句子翻译组件；asbplayer 运行产物保持不变，未借此声明视频/制卡验收。桥的单一实现与测试说明见 [Yomitan 维护记录](https://github.com/suifracti/yomitan/blob/main/docs/personal-build.md)。
+
+
+## zh-study6 统一包维护
+
+仅更新配套下载/边界文档；asbplayer 运行代码与 1.22.0 原构建逐文件相同，没有重新构建或新播放器验收。统一包来源与当前 Yomitan UI、协议、离线验证集中于 [Yomitan 单一维护说明](https://github.com/suifracti/yomitan/blob/main/docs/personal-build.md)。两个自有 main 的推送已恢复；当前发布包 `v2026.10.08-zh-study6` 保留原许可/源码归属，无认证或个人学习数据。外语笔记/Anki 保存闭环仍未实施。
