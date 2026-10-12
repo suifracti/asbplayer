@@ -1,24 +1,26 @@
 # asbplayer 中文学习定制版
 
-> **跨工具英语学习系统唯一主项目规划：** [ENGLISH_LEARNING_PLAN.md](https://github.com/suifracti/yomitan/blob/main/ENGLISH_LEARNING_PLAN.md)。新 Agent 请先读该文档及本仓库 `AGENTS.md`，再读对应 [Issue #1](https://github.com/suifracti/yomitan/issues/1) 的当前任务；**此 README 仅说明 asbplayer 公开仓库版本，历史发布说明不代表本机最新工作树／日常加载状态**。不要从此 README 另建立项目总规划。
+> **跨工具外语学习系统当前接手：先读 [AGENTS.md](AGENTS.md)，再通过 Obsidian MCP 读取 Vault `03-项目与工程/外语学习系统/README.md` → `Decisions.md` → `Handoff.md`。** GitHub 的 [旧 ENGLISH_LEARNING_PLAN](https://github.com/suifracti/yomitan/blob/main/ENGLISH_LEARNING_PLAN.md) 与 [旧协调 Issue #1](https://github.com/suifracti/yomitan/issues/1) 只供追溯，不是现行规划和派工。附件仍放 [Google Drive 原文件夹](https://drive.google.com/drive/folders/1yj5UZvKGsyrgHpmdNRoEv3ixyK-hG-kZ)。
+>
+> **以下为 2026-10-08 zh-study7 发布包的历史说明**。不能把此页声称的当时版本、安装步骤或验收状态当作当前日常 Chrome 的实际结果；新 App 也未因修改此 README 而完成交付。
 
 仅维护 [suifracti/asbplayer](https://github.com/suifracti/asbplayer)，不向官方仓库推送或提 PR。
 
-## 下载与加载
+## 2026-10-08 历史发布包下载与加载
 
 请从本仓库 **[Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.08-zh-study7)** 下载预构建安装包，不用 Code → Download ZIP（那是需构建的源码）。
 两扩展统一包发布于 [asbplayer Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.08-zh-study7)。解压到固定目录，在 Chrome 扩展页启用开发者模式，分别“加载已解压的扩展”选择 `yomitan`、`asbplayer` 文件夹。不要同时启用商店原版，避免重复扫描或录音。
 
 新安装已预设中文界面、AnkiConnect `127.0.0.1:8766`、牌组 `外语::英语语境`、笔记类型 `外语语境卡` 和七个字段；不会迁移或覆盖旧扩展数据。Yomitan 随包提供增强 ECDICT 英语学习词典，首次入门/设置页会自动导入，请等待提示就绪。Chrome 首次加载/授权须人工确认。Anki Desktop 必须运行且安装 AnkiConnect；此包不自动改任意机器的 Anki 数据库。
 
-## 使用
+## 2026-10-08 历史发布包使用方法
 
 - 文章/字幕：按住 **Shift** 悬停查词；中文释义由内置 ECDICT 提供。
 - 视频：asbplayer 使用平台可检测字幕，或拖入自己的 SRT/VTT；不保证任意网站字幕自动可读。
 - 视频语境制卡：使用 asbplayer 的制卡入口，或在 Yomitan 加词后用 asbplayer 更新上一张卡片补入音频/截图。普通查词制卡无需额外服务。
 - **高级词汇状态标色依赖额外 yomitan-api 本机组件，当前包不启用。** 已预设 Word 字段和目标牌组，但不把配置称为已完成 Anki 复习回流。21 天等“成熟”阈值是软件规则，不是真实掌握。
 
-## 当前配套版本：zh-study7
+## 2026-10-08 历史配套版本：zh-study7
 
 统一包搭配 Yomitan 的同卡查词、原句/AI 解释和缓存英英辅助中文；学习内容不再打开额外页面，手动学习偏好已移除。当前实现与验证只维护于 [Yomitan 说明](https://github.com/suifracti/yomitan/blob/main/docs/personal-build.md)，本仓库不复制另一份 UI 状态。
 
