@@ -73,7 +73,7 @@ export default defineConfig({
         },
     },
     manifest: ({ browser, mode }) => {
-        const version = '1.22.0';
+        const version = '1.22.2';
         const isDev = mode === 'development';
         const devLabel = isDev ? ' (Dev)' : '';
         const title = `${extName}${devLabel}`;
@@ -81,6 +81,7 @@ export default defineConfig({
         const personalKey = fs.readFileSync(path.resolve(__dirname, '../localization/extension-public-key.txt'), 'utf8').trim();
 
         let manifest: UserManifest = {
+            externally_connectable: { ids: ['fdibnlkfllnojcmhcghkmdlceeegmhpf'] },
             name,
             description: '__MSG_extensionDescription__',
             version,
@@ -196,7 +197,7 @@ export default defineConfig({
         let permissions = ['tabs', 'storage', 'unlimitedStorage'];
 
         if (browser === 'chrome') {
-            permissions = [...permissions, 'tabCapture', 'activeTab', 'contextMenus', 'sidePanel', 'offscreen'];
+            permissions = [...permissions, 'tabCapture', 'activeTab', 'contextMenus', 'sidePanel', 'offscreen', 'nativeMessaging'];
 
             const key = isDev
                 ? {}

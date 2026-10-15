@@ -242,3 +242,12 @@ it('preserves auto-sync eligibility and ordering when no selector is configured'
     expect(page.videoElementPreference(firstVideo)).toBe(0);
     expect(page.videoElementPreference(secondVideo)).toBe(0);
 });
+
+it('Bilibili mainland video has a real subtitle integration, not generic lookup', () => {
+    const page = pageDelegateForUrl(pagesConfig.pages, new URL('https://www.bilibili.com/video/BV1abcdefghi'), {
+        tutorial: false,
+        genericSubtitleParser: 'off',
+    });
+    expect(page.config.key).toBe('bilibili');
+    expect(page.config.generic).not.toBe(true);
+});

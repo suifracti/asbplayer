@@ -11,7 +11,8 @@
 
 ## 已定边界
 
-- Chrome/asbplayer 继续提供实际网页字幕输入，IINA 保留现有适配；薄 Electron 伴学 App 复用现有词典/学习服务/保存/恢复，不重造播放器或独立制卡管线。
+- **2026-10-15 当前决定**：独立 App 已停止，只继续优化现有 asbplayer/Yomitan/IINA 及其学习/保存能力，不恢复旧 App 任务。
+- **只用个人仓库 `main`**：原工作树直接小改、自检后 commit/push，不新开分支或 PR，不强推覆盖；源码同步不等于发布或真实学习数据写入授权。
 - 自动字幕的来源、轨道、语言、时间、回源需按既有可信契约核实，合成/安装/构建通过不等于真实网站 PASS。普通手动文本必须明确标注来源，不伪称网站可信轨道。
 - 项目决定/交接在 Obsidian；报告、HTML、补丁与包放 [Google Drive 原文件夹](https://drive.google.com/drive/folders/1yj5UZvKGsyrgHpmdNRoEv3ixyK-hG-kZ)；代码在现有 fork 与本机实际工作树。
 - 原 [历史规划](https://github.com/suifracti/yomitan/blob/main/ENGLISH_LEARNING_PLAN.md) 和 [历史 Issue #1](https://github.com/suifracti/yomitan/issues/1) 仅供追溯；不据旧任务自动派工、扩大模型预算、制卡或重新加载 IINA 全部插件。

@@ -6,10 +6,13 @@
 
 仅维护 [suifracti/asbplayer](https://github.com/suifracti/asbplayer)，不向官方仓库推送或提 PR。
 
+## 2026-10-15 源码同步（非发布）
+
+只使用本仓库 `main`，不新开分支或 PR。此次补回既有本机 API 字幕采集、双扩展可信 cue 交接、换源/时间处理及精简字幕工具的源码与定向测试；独立 App 已停止。与 Yomitan 的来源协议配套，但不把替身/合成测试当作真实网站已通过，也不要求因本次源码同步重载、重装或写学习数据。
+
 ## 2026-10-08 历史发布包下载与加载
 
-请从本仓库 **[Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.08-zh-study7)** 下载预构建安装包，不用 Code → Download ZIP（那是需构建的源码）。
-两扩展统一包发布于 [asbplayer Releases](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.08-zh-study7)。解压到固定目录，在 Chrome 扩展页启用开发者模式，分别“加载已解压的扩展”选择 `yomitan`、`asbplayer` 文件夹。不要同时启用商店原版，避免重复扫描或录音。
+历史本机记录（2026-10-09）：**study17 / asbplayer1.22.2 + Yomitan26.10.9.8**，加载目录 `本机固定的扩展加载目录`，Downloads包 `english-study-extensions-2026-10-09-study17.zip`。本轮asbplayer代码不变；已安装者仅重载Yomitan并刷新网页，不卸载清数据。本轮未推送/发布；[Releases study7](https://github.com/suifracti/asbplayer/releases/tag/v2026.10.08-zh-study7) 是此前公开版，不是此次本机改动。Code下载是待构建源码。
 
 新安装已预设中文界面、AnkiConnect `127.0.0.1:8766`、牌组 `外语::英语语境`、笔记类型 `外语语境卡` 和七个字段；不会迁移或覆盖旧扩展数据。Yomitan 随包提供增强 ECDICT 英语学习词典，首次入门/设置页会自动导入，请等待提示就绪。Chrome 首次加载/授权须人工确认。Anki Desktop 必须运行且安装 AnkiConnect；此包不自动改任意机器的 Anki 数据库。
 
@@ -17,14 +20,16 @@
 
 - 文章/字幕：按住 **Shift** 悬停查词；中文释义由内置 ECDICT 提供。
 - 视频：asbplayer 使用平台可检测字幕，或拖入自己的 SRT/VTT；不保证任意网站字幕自动可读。
-- 视频语境制卡：使用 asbplayer 的制卡入口，或在 Yomitan 加词后用 asbplayer 更新上一张卡片补入音频/截图。普通查词制卡无需额外服务。
+- 视频学习：载入整轨字幕，明确开始AI翻译及Obsidian记录；词句用Yomitan保存学习过程，可选采集对应字幕片段，学完审核后制卡。原生“更新上一张卡”不适用于延迟批量制卡，不推荐在这条链路使用。
 - **高级词汇状态标色依赖额外 yomitan-api 本机组件，当前包不启用。** 已预设 Word 字段和目标牌组，但不把配置称为已完成 Anki 复习回流。21 天等“成熟”阈值是软件规则，不是真实掌握。
 
-## 2026-10-08 历史配套版本：zh-study7
+## 历史本机功能记录（study14–study16）
 
-统一包搭配 Yomitan 的同卡查词、原句/AI 解释和缓存英英辅助中文；学习内容不再打开额外页面，手动学习偏好已移除。当前实现与验证只维护于 [Yomitan 说明](https://github.com/suifracti/yomitan/blob/main/docs/personal-build.md)，本仓库不复制另一份 UI 状态。
+主按钮负责整轨翻译/暂停；保存成功再显示打开Obsidian。轨道/语言、下载、补交和记住自动设置放次要区域，状态/取消可见。已有60请求/确认上限、日记真实事件、缓存与补交规则不改，不自动制卡。
 
-**asbplayer 1.22.0 运行代码、key/ID/权限与 zh-study2 构建均未改**，已经安装者只重载 Yomitan、刷新网页，无需重载或重新配置播放器。仍不宣称新版 Chrome、真实视频字幕/截音/制卡/复习回流已验收。Obsidian→Anki 完整保存路线尚未实现，收藏不是完整闭环。
+字幕文字节点提供偏移后的有限时间属性给Yomitan，调偏移重建缓存。它不是整句识别或跨站采集保证；Yomitan仍验证当前来源/唯一视频/token，媒体默认不选。study16只升级共用桥的学习库/草稿模块；asbplayer运行代码、字幕协议、扩展身份和权限未改。Yomitan选中记录→持久草稿→明确目标提交已实施，详见配套Yomitan说明；视频整体真人验收仍待进行。
+
+25项相关Jest、类型/lint与Chrome构建通过；本人网站/全屏/实际模型翻译与制卡质量待验。没有真实模型请求、学习卡或伪造观看记录。英文默认，日语预备不自动开始；复习状态回流尚未实现。详细执行/边界见 `docs/personal-build.md`。
 
 ## 更新与边界
 

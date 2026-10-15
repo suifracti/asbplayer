@@ -53,6 +53,7 @@ import { CachingElementOverlay, OffsetAnchor } from '@project/extension/src/serv
 import { v4 as uuidv4 } from 'uuid';
 import type { DictionaryProvider } from '@project/common/dictionary-db';
 import type Binding from '@/services/binding';
+import { CUE_FIELDS, validCue, type CueHint } from '../services/study-cue-attestation';
 
 const BOUNDING_BOX_PADDING = 25;
 
@@ -97,10 +98,205 @@ class VideoFetcher implements Fetcher {
     }
 }
 
+import { studyApiFiles, studyPageKey } from '../services/study-api-subtitles';
+
 export default class SubtitleController {
     private readonly context: Binding;
     private readonly dictionary: DictionaryProvider;
     private readonly settings: SettingsProvider;
+
+    private studySourceRevision = uuidv4();
+    private studyConfirmedCue?: CueHint;
+    private studyCueSnapshots = new Map<string, CueHint>();
+    private studyCueNodes = new WeakMap<Element, CueHint>();
+    private studyRenderedRoots = new WeakSet<Element>();
+    private studyVideoIdentity?: { src: string; currentSrc: string; registered: string };
+
+    private studyApiTracks = new Map<
+        number,
+        {
+            pageKey: string;
+            language: string;
+            name: string;
+            cues: readonly { text: string; start: number; end: number; index: number }[];
+        }
+    >();
+
+    adoptStudyApiFiles(files: File[], flatten: boolean) {
+        this.studyApiTracks.clear();
+        if (flatten) return; // Segmented/merged imports have no provider identity contract.
+        files.forEach((file, track) => {
+            const proof = studyApiFiles.get(file);
+            if (
+                !proof ||
+                proof.pageKey !== studyPageKey(location.href) ||
+                proof.language !== 'en' ||
+                this.subtitleFileNames?.[track] !== file.name
+            )
+                return;
+            this.studyApiTracks.set(track, {
+                ...proof,
+                name: file.name,
+                cues: this.subtitles
+                    .filter((c) => (c.track ?? 0) === track)
+                    .map((c) =>
+                        Object.freeze({ text: c.text, start: c.originalStart, end: c.originalEnd, index: c.index })
+                    ),
+            });
+        });
+    }
+
+    private studyLanguage(cue: IndexedSubtitleModel): string | undefined {
+        const track = cue.track ?? 0;
+        const api = this.studyApiTracks.get(track);
+        if (
+            api &&
+            api.pageKey === studyPageKey(location.href) &&
+            api.name === this.subtitleFileNames?.[track] &&
+            api.cues.some(
+                (c) =>
+                    c.index === cue.index &&
+                    c.text === cue.text &&
+                    c.start === cue.originalStart &&
+                    c.end === cue.originalEnd
+            )
+        )
+            return api.language;
+        const native = [...this.context.video.textTracks].filter(
+            (t) =>
+                t.label === this.subtitleFileNames?.[track] &&
+                [...(t.cues ?? [])].some(
+                    (c) =>
+                        c instanceof VTTCue &&
+                        c.text === cue.text &&
+                        c.startTime * 1000 === cue.originalStart &&
+                        c.endTime * 1000 === cue.originalEnd
+                )
+        );
+        return native.length === 1 ? native[0].language.split('-')[0] : undefined;
+    }
+
+    get cueSourceRevision() {
+        return this.studySourceRevision;
+    }
+
+    confirmStudyCue(hint: CueHint) {
+        const denied = { ok: false };
+        const video = this.context.video;
+        if (
+            !this.studyVideoIdentity ||
+            video.src !== this.studyVideoIdentity.src ||
+            video.currentSrc !== this.studyVideoIdentity.currentSrc ||
+            this.context.registeredVideoSrc !== this.studyVideoIdentity.registered
+        )
+            return denied;
+        if (
+            !validCue(hint) ||
+            window !== window.top ||
+            hint.url !== location.href ||
+            hint.sourceRevision !== this.studySourceRevision ||
+            this._forceHideSubtitles ||
+            !this._displaySubtitles
+        )
+            return denied;
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount !== 1 || selection.isCollapsed) return denied;
+        const range = selection.getRangeAt(0);
+        const parent =
+            range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement;
+        const node = parent?.closest('[data-asb-study-cue]');
+        const snapshot = node && this.studyCueNodes.get(node);
+        if (
+            !node ||
+            !snapshot ||
+            !node.isConnected ||
+            !node.contains(range.endContainer) ||
+            !node.getClientRects().length ||
+            !CUE_FIELDS.filter((k) => !['selectionStart', 'selectionEnd', 'word'].includes(k)).every(
+                (k) => snapshot[k] === hint[k]
+            )
+        )
+            return denied;
+        const displayed = [
+            ...this.bottomSubtitlesElementOverlay.displayingElements(),
+            ...this.topSubtitlesElementOverlay.displayingElements(),
+        ];
+        if (
+            !displayed.some((root) => root === node || root.contains(node)) ||
+            getComputedStyle(node).visibility === 'hidden'
+        )
+            return denied;
+        const showing = this.showingSubtitles?.filter(
+            (s) => s.index === hint.cueIndex && (s.track ?? 0) === hint.trackIndex
+        );
+        if (showing?.length !== 1) return denied;
+        const cue = showing[0];
+        if (
+            cue.text !== hint.text ||
+            cue.originalStart !== hint.originalStartMs ||
+            cue.originalEnd !== hint.originalEndMs ||
+            cue.start - cue.originalStart !== hint.subtitleOffsetMs ||
+            cue.end - cue.originalEnd !== hint.subtitleOffsetMs ||
+            this.subtitleFileNames?.[hint.trackIndex] !== hint.trackName
+        )
+            return denied;
+        if (this.studyLanguage(cue) !== hint.language) return denied;
+        const plain = (n: Node): string =>
+            n instanceof Element && n.matches('rt, rp, .asb-gloss-text')
+                ? ''
+                : n.nodeType === Node.TEXT_NODE
+                  ? (n.textContent ?? '')
+                  : [...n.childNodes].map(plain).join('');
+        const prefix = document.createRange();
+        prefix.selectNodeContents(node);
+        prefix.setEnd(range.startContainer, range.startOffset);
+        if (
+            plain(node) !== cue.text ||
+            plain(prefix.cloneContents()).length !== hint.selectionStart ||
+            plain(range.cloneContents()) !== hint.word
+        )
+            return denied;
+        this.studyConfirmedCue = Object.freeze({ ...hint });
+        return { ok: true, cue: hint, video: this.context.registeredVideoSrc };
+    }
+    revalidateStudyCue(hint: CueHint) {
+        const denied = { ok: false };
+        const video = this.context.video;
+        if (
+            !validCue(hint) ||
+            !this.studyConfirmedCue ||
+            !CUE_FIELDS.every((k) => hint[k] === this.studyConfirmedCue![k]) ||
+            hint.url !== location.href ||
+            window !== window.top ||
+            hint.sourceRevision !== this.studySourceRevision ||
+            !this.studyVideoIdentity ||
+            video.src !== this.studyVideoIdentity.src ||
+            video.currentSrc !== this.studyVideoIdentity.currentSrc ||
+            this.context.registeredVideoSrc !== this.studyVideoIdentity.registered ||
+            this.subtitleFileNames?.[hint.trackIndex] !== hint.trackName
+        )
+            return denied;
+        const cues = this.subtitles.filter((c) => c.index === hint.cueIndex && (c.track ?? 0) === hint.trackIndex);
+        if (cues.length !== 1) return denied;
+        const cue = cues[0];
+        if (
+            cue.text !== hint.text ||
+            cue.originalStart !== hint.originalStartMs ||
+            cue.originalEnd !== hint.originalEndMs ||
+            cue.start - cue.originalStart !== hint.subtitleOffsetMs ||
+            cue.end - cue.originalEnd !== hint.subtitleOffsetMs
+        )
+            return denied;
+        if (this.studyLanguage(cue) !== hint.language) return denied;
+        return { ok: true, cue: hint, video: this.context.registeredVideoSrc };
+    }
+
+    async returnToStudyCue(hint: CueHint) {
+        const checked = this.revalidateStudyCue(hint);
+        if (!checked.ok) return checked;
+        await this.context.seek(hint.originalStartMs + hint.subtitleOffsetMs);
+        return this.revalidateStudyCue(hint);
+    }
 
     private showingSubtitles?: IndexedSubtitleModel[];
     private invisibleSubtitles?: IndexedSubtitleModel[];
@@ -187,6 +383,15 @@ export default class SubtitleController {
     }
 
     set subtitles(subtitles) {
+        this.studyApiTracks.clear();
+        this.studyVideoIdentity = {
+            src: this.context.video.src,
+            currentSrc: this.context.video.currentSrc,
+            registered: this.context.registeredVideoSrc,
+        };
+        this.studyCueSnapshots.clear();
+        this.studyConfirmedCue = undefined;
+        this.studySourceRevision = uuidv4();
         this.subtitleAnnotations.setSubtitles(subtitles);
     }
 
@@ -643,7 +848,8 @@ export default class SubtitleController {
                             subtitle.track,
                             rendered?.richText,
                             rendered?.richTextOnHover,
-                            subtitle.index
+                            subtitle.index,
+                            subtitle
                         );
                     }
                 },
@@ -657,10 +863,77 @@ export default class SubtitleController {
         track?: number,
         richText?: string,
         richTextOnHover?: string,
-        subtitleIndex?: number
+        subtitleIndex?: number,
+        timing?: { start: number; end: number; originalStart?: number; originalEnd?: number }
     ) {
         const indexAttribute = subtitleIndex === undefined ? '' : ` ${ASB_SUBTITLE_INDEX_ATTRIBUTE}="${subtitleIndex}"`;
-        return `<span data-track="${track ?? 0}"${indexAttribute} class="${this._subtitleClasses(
+        const timingAttributes =
+            timing &&
+            Number.isFinite(timing.start) &&
+            Number.isFinite(timing.end) &&
+            timing.start >= 0 &&
+            timing.end > timing.start
+                ? ` data-asb-study-start-ms="${timing.start}" data-asb-study-end-ms="${timing.end}"`
+                : '';
+        const cue = subtitleIndex === undefined ? undefined : this.subtitles.find((s) => s.index === subtitleIndex);
+        const originalStartMs = timing?.originalStart;
+        const originalEndMs = timing?.originalEnd;
+        const validTime =
+            Number.isFinite(originalStartMs) &&
+            Number.isFinite(originalEndMs) &&
+            originalStartMs! >= 0 &&
+            originalEndMs! > originalStartMs! &&
+            originalEndMs! <= 604800000 &&
+            timing &&
+            timing.start - originalStartMs! === timing.end - originalEndMs!;
+        const trackIndex = track ?? 0;
+        // Only private provider retrieval or a matching native TextTrack can supply language.
+        const language = cue && this.studyLanguage(cue);
+        const sameTrack = this.subtitles.filter((s) => (s.track ?? 0) === trackIndex);
+        const at = sameTrack.findIndex((s) => s.index === subtitleIndex);
+        const adjacentCues =
+            at < 0
+                ? []
+                : [sameTrack[at - 1], sameTrack[at + 1]]
+                      .filter(
+                          (s) =>
+                              s &&
+                              !s.textImage &&
+                              s.text.length <= 600 &&
+                              Number.isFinite(s.originalStart) &&
+                              Number.isFinite(s.originalEnd) &&
+                              s.originalStart >= 0 &&
+                              s.originalEnd > s.originalStart
+                      )
+                      .map((s) => ({
+                          index: s.index,
+                          text: s.text,
+                          originalStartMs: s.originalStart,
+                          originalEndMs: s.originalEnd,
+                      }));
+        const snapshot =
+            cue && text.length <= 2000
+                ? {
+                      version: 1,
+                      sourceRevision: this.studySourceRevision,
+                      text,
+                      cueIndex: subtitleIndex,
+                      trackIndex,
+                      trackName: this.subtitleFileNames?.[trackIndex]?.slice(0, 200) ?? null,
+                      language: language === 'en' || language === 'ja' ? language : null,
+                      originalStartMs: validTime ? originalStartMs : null,
+                      originalEndMs: validTime ? originalEndMs : null,
+                      subtitleOffsetMs: validTime ? timing.start - originalStartMs! : null,
+                      // Only the owning top-level page is known here. Frame URLs are not video-tab URLs.
+                      url: window === window.top && /^https?:/.test(location.href) ? location.href : null,
+                      adjacentCues,
+                  }
+                : null;
+        const sourceAttribute = snapshot
+            ? ` data-asb-study-cue="${JSON.stringify(snapshot).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}"`
+            : '';
+        if (snapshot) this.studyCueSnapshots.set(JSON.stringify(snapshot), snapshot as unknown as CueHint);
+        return `<span data-track="${track ?? 0}"${indexAttribute}${timingAttributes}${sourceAttribute} class="${this._subtitleClasses(
             track
         )}" style="${this._subtitleStyles(track)}">${getAnnotationsHtml(text, richText, richTextOnHover)}</span>`;
     }
@@ -749,6 +1022,7 @@ export default class SubtitleController {
         const previousOffset = this._computeOffset();
         if (previousOffset === offset) return;
 
+        const apiTracks = new Map(this.studyApiTracks);
         this.subtitles = this.subtitles.map((s) => ({
             text: s.text,
             textImage: s.textImage,
@@ -760,6 +1034,12 @@ export default class SubtitleController {
             index: s.index,
         }));
 
+        // The internal offset operation leaves provider text/original times untouched.
+        // New query revision invalidates old actions, while a fresh selection can still attest.
+        this.studyApiTracks = apiTracks;
+
+        // Timing metadata shares the text cache; rebuild after an offset edit.
+        this.cacheHtml();
         this.lastOffsetChangeTimestamp = Date.now();
         if (this.offsetHideTimeout) clearTimeout(this.offsetHideTimeout);
         this.offsetHideTimeout = setTimeout(() => {
@@ -883,6 +1163,17 @@ export default class SubtitleController {
 
     private _setSubtitlesHtml(subtitlestOverlay: ElementOverlay, htmls: KeyedHtml[]) {
         subtitlestOverlay.setHtml(htmls);
+        for (const root of subtitlestOverlay.displayingElements()) {
+            if (this.studyRenderedRoots.has(root)) continue;
+            this.studyRenderedRoots.add(root);
+            const nodes = root.matches('[data-asb-study-cue]')
+                ? [root]
+                : [...root.querySelectorAll('[data-asb-study-cue]')];
+            for (const node of nodes) {
+                const snapshot = this.studyCueSnapshots.get(node.getAttribute('data-asb-study-cue') ?? '');
+                if (snapshot) this.studyCueNodes.set(node, snapshot);
+            }
+        }
     }
 
     private _appendSubtitlesHtml(html: string) {

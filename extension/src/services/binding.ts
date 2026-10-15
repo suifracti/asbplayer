@@ -1,3 +1,5 @@
+import { studyApiFiles } from './study-api-subtitles';
+import { StudyVideoController } from '@project/extension/src/services/study-video';
 import {
     adjacentSubtitle,
     buildSubtitleTracks,
@@ -174,6 +176,18 @@ export interface BindingOptions {
 }
 
 export default class Binding {
+    // Kept only in this content world: app round trips do not serialize provider authority.
+    private _studyApiAppRestore?: {
+        files: File[];
+        flatten: boolean;
+        subtitles: SubtitleModel[];
+        names: string[];
+        location: string;
+        src: string;
+        currentSrc: string;
+        registered: string;
+    };
+
     private readonly _fallbackVideoSrc = uuidv4();
 
     subscribed: boolean = false;
@@ -262,6 +276,7 @@ export default class Binding {
     private unsubscribeStatisticsSubtitleMine?: () => void;
 
     private readonly frameId?: string;
+    private studyVideo?: StudyVideoController;
 
     constructor(video: HTMLMediaElement, options: BindingOptions) {
         this.video = video;
@@ -281,6 +296,7 @@ export default class Binding {
         this.notificationController = new NotificationController(this);
         this.mobileVideoOverlayController = new MobileVideoOverlayController(this, OffsetAnchor.top);
         this.subtitleController.onOffsetChange = () => {
+            this.studyVideo?.updateTiming(this.subtitleController.subtitles);
             this.playbackEngine.subtitlesChanged(this.subtitleController.subtitles);
             return this.mobileVideoOverlayController.updateModel();
         };
@@ -936,6 +952,28 @@ export default class Binding {
             sender: Browser.runtime.MessageSender,
             sendResponse: (response?: any) => void
         ) => {
+            if (request?.sender === 'study-api-private-ping' && sender.id === browser.runtime.id && !sender.tab) {
+                sendResponse({ ok: true });
+                return false;
+            }
+            if (
+                request?.sender === 'study-cue-private' &&
+                sender.id === browser.runtime.id &&
+                !sender.tab &&
+                sender.url === `chrome-extension://${browser.runtime.id}/background.js` &&
+                request.cue?.sourceRevision === this.subtitleController.cueSourceRevision
+            ) {
+                if (request.phase === 'seek') {
+                    void this.subtitleController.returnToStudyCue(request.cue).then(sendResponse);
+                    return true;
+                }
+                sendResponse(
+                    request.phase === 'revalidate'
+                        ? this.subtitleController.revalidateStudyCue(request.cue)
+                        : this.subtitleController.confirmStudyCue(request.cue)
+                );
+                return false;
+            }
             if (request.sender === 'asbplayer-extension-to-video' && request.src === this._registeredVideoSrc) {
                 switch (request.message.command) {
                     case 'init':
@@ -961,10 +999,41 @@ export default class Binding {
                     case 'subtitles': {
                         const subtitlesMessage = request.message as SubtitlesToVideoMessage;
                         const subtitles: SubtitleModel[] = subtitlesMessage.value;
+                        const pending = this._studyApiAppRestore;
+                        const names = subtitlesMessage.names || [subtitlesMessage.name];
+                        const restore =
+                            pending &&
+                            sender.id === browser.runtime.id &&
+                            !sender.tab &&
+                            pending.location === location.href &&
+                            pending.src === this.video.src &&
+                            pending.currentSrc === this.video.currentSrc &&
+                            pending.registered === this._registeredVideoSrc &&
+                            JSON.stringify(pending.names) === JSON.stringify(names) &&
+                            pending.subtitles.length === subtitles.length &&
+                            pending.subtitles.every((expected, index) => {
+                                const actual = subtitles[index];
+                                return (
+                                    expected.text === actual.text &&
+                                    expected.track === actual.track &&
+                                    expected.start === actual.start &&
+                                    expected.end === actual.end &&
+                                    expected.originalStart === actual.originalStart &&
+                                    expected.originalEnd === actual.originalEnd &&
+                                    !actual.textImage
+                                );
+                            });
+                        // App readiness/render changes can resend the same table. Keep only
+                        // the private file proof for an exact repeat; any change revokes it.
+                        if (!restore) this._studyApiAppRestore = undefined;
                         this._updateSubtitles(
                             subtitles.map((s, index) => ({ ...s, index })),
-                            subtitlesMessage.names || [subtitlesMessage.name]
+                            names
                         );
+                        if (restore) {
+                            this.subtitleController.adoptStudyApiFiles(pending.files, pending.flatten);
+                            this.subtitleController.cacheHtml();
+                        }
                         break;
                     }
                     case 'request-subtitles': {
@@ -1425,6 +1494,8 @@ export default class Binding {
     }
 
     unbind() {
+        this.studyVideo?.dispose();
+        this.studyVideo = undefined;
         asbTrace('playback/binding', 'Unbinding media owner', {
             subscribed: this.subscribed,
             pendingDisneyPlusSeeks: this.disneyPlusPendingSeeks.size,
@@ -1911,6 +1982,7 @@ export default class Binding {
     }
 
     async loadSubtitles(files: File[], flatten: boolean, syncWithAsbplayerId?: string) {
+        this._studyApiAppRestore = undefined;
         const {
             streamingSubtitleListPreference,
             subtitleRegexFilter,
@@ -1988,11 +2060,51 @@ export default class Binding {
                     })),
                     flatten ? [files[0].name] : files.map((f) => f.name)
                 );
+                this.subtitleController.adoptStudyApiFiles(files, flatten);
+                this.subtitleController.cacheHtml();
                 break;
             }
-            case SubtitleListPreference.app:
+            case SubtitleListPreference.app: {
+                if (!flatten && files.some((file) => studyApiFiles.has(file))) {
+                    const identity = {
+                        location: location.href,
+                        src: this.video.src,
+                        currentSrc: this.video.currentSrc,
+                        registered: this._registeredVideoSrc,
+                    };
+                    const reader = new SubtitleReader({
+                        regexFilter: subtitleRegexFilter,
+                        regexFilterTextReplacement: subtitleRegexFilterTextReplacement,
+                        subtitleHtml: subtitleHtml,
+                        convertNetflixRuby,
+                        pgsParserWorkerFactory,
+                    });
+                    const offset = this.playbackEngine.lastSubtitleOffset;
+                    const subtitles = await reader.subtitles(files, flatten);
+                    if (
+                        identity.location !== location.href ||
+                        identity.src !== this.video.src ||
+                        identity.currentSrc !== this.video.currentSrc ||
+                        identity.registered !== this._registeredVideoSrc
+                    )
+                        return;
+                    this._studyApiAppRestore = {
+                        files,
+                        flatten,
+                        subtitles: subtitles.map((s) => ({
+                            ...s,
+                            start: s.start + offset,
+                            end: s.end + offset,
+                            originalStart: s.start,
+                            originalEnd: s.end,
+                        })),
+                        names: flatten ? [files[0].name] : files.map((f) => f.name),
+                        ...identity,
+                    };
+                }
                 await syncWithAsbplayerTab(false, undefined);
                 break;
+            }
         }
     }
 
@@ -2004,6 +2116,8 @@ export default class Binding {
         });
         this.subtitleController.subtitles = subtitles;
         this.subtitleController.subtitleFileNames = subtitleFileNames;
+        this.studyVideo ??= new StudyVideoController(this.video);
+        this.studyVideo.load(subtitles, subtitleFileNames);
         this.subtitleController.cacheHtml();
 
         const nonEmptyTrackIndexes = this._nonEmptyTrackIndexes(subtitles);

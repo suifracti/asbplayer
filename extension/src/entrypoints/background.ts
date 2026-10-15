@@ -1,3 +1,6 @@
+import { installStudyApiRetrieval } from '@/services/study-api-subtitles';
+import { handleStudyVideoMessage } from '@/services/study-video-native';
+import { installStudyCueAttestation } from '@/services/study-cue-attestation';
 import { asbError, configureLogProvider, LogProvider } from '@project/common/util/log';
 import { SessionLogStorage } from '@/services/session-log-storage';
 import { handleLogMessage } from '@/services/log-message-handler';
@@ -83,6 +86,9 @@ import StatisticsOverlayForwarderHandler from '@/handlers/statistics-overlay/sta
 import OpenStatisticsOverlayHandler from '@/handlers/open-statistics-overlay-handler';
 
 export default defineBackground(() => {
+    installStudyCueAttestation();
+    installStudyApiRetrieval();
+    browser.runtime.onMessage.addListener(handleStudyVideoMessage);
     const logStore = new SessionLogStorage();
     const logProvider = new LogProvider(logStore);
     void configureLogProvider(logProvider);

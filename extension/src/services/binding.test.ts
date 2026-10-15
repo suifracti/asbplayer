@@ -1,3 +1,5 @@
+import { studyApiFiles } from './study-api-subtitles';
+import { SubtitleReader } from '@project/common/subtitle-reader';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { AutoPausePreference, PlayMode, PostMineAction } from '@project/common';
 import type { IndexedSubtitleModel } from '@project/common';
@@ -223,6 +225,85 @@ describe('Binding playback mode integration', () => {
         jest.useRealTimers();
         delete (globalThis as any).browser;
         document.body.replaceChildren();
+    });
+
+    it('captures proof-bearing auto-loaded files before app sync, but not ordinary imports', async () => {
+        const video = createVideo();
+        const binding = new Binding(video, bindingOptions(false, false));
+        const file = new File(['provider bytes'], 'English.bbjson');
+        (file as any).arrayBuffer = async () => new ArrayBuffer(0);
+        const cue = makeSubtitle({ text: 'A provider cue.', track: 0 });
+        (SubtitleReader.prototype as any).subtitles = jest.fn(async () => [cue]);
+        jest.spyOn(binding.settings, 'get').mockResolvedValue({ streamingSubtitleListPreference: 'app' } as any);
+        try {
+            await binding.loadSubtitles([file], false);
+            expect((binding as any)._studyApiAppRestore).toBeUndefined();
+            studyApiFiles.set(file, { language: 'en', pageKey: 'youtube:abcdefghijk' });
+            await binding.loadSubtitles([file], false);
+            expect((binding as any)._studyApiAppRestore.files).toEqual([file]);
+            expect((binding as any)._studyApiAppRestore.subtitles[0].originalStart).toBe(cue.start);
+            await binding.loadSubtitles([file], true);
+            expect((binding as any)._studyApiAppRestore).toBeUndefined();
+        } finally {
+            delete (SubtitleReader.prototype as any).subtitles;
+            binding.unbind();
+        }
+    });
+
+    it('restores private API-file proof after the app subtitle-list round trip, never altered replies', async () => {
+        const video = createVideo();
+        const binding = new Binding(video, bindingOptions(false, false));
+        binding.bind();
+        await jest.advanceTimersByTimeAsync(0);
+        const cue = makeSubtitle({ text: 'A provider cue.', track: 0 });
+        const file = new File(['provider bytes'], 'English.bbjson');
+        const adopt = jest.spyOn(binding.subtitleController, 'adoptStudyApiFiles');
+        const pending = () => ({
+            files: [file],
+            flatten: false,
+            subtitles: [cue],
+            names: [file.name],
+            location: location.href,
+            src: video.src,
+            currentSrc: video.currentSrc,
+            registered: binding.registeredVideoSrc,
+        });
+        (binding as any)._studyApiAppRestore = pending();
+        (globalThis as any).browser.runtime.id = 'asb-test';
+        const reply = (value: any[], names: string[] = [file.name], senderId = 'asb-test') => {
+            for (const listener of runtimeListeners)
+                listener(
+                    {
+                        sender: 'asbplayer-extension-to-video',
+                        src: binding.registeredVideoSrc,
+                        message: { command: 'subtitles', value, names },
+                    },
+                    { id: senderId },
+                    () => undefined
+                );
+        };
+        reply([cue]);
+        expect(adopt).toHaveBeenCalledWith([file], false);
+        adopt.mockClear();
+        reply([cue]); // App may send identical data again after readiness/render changes.
+        expect(adopt).toHaveBeenCalledWith([file], false);
+        adopt.mockClear();
+        for (const change of [{ text: 'Forged cue.' }, { originalStart: 1 }, { track: 1 }]) {
+            (binding as any)._studyApiAppRestore = pending();
+            reply([{ ...cue, ...change }]);
+            expect(adopt).not.toHaveBeenCalled();
+        }
+        (binding as any)._studyApiAppRestore = pending();
+        reply([cue], ['Other.bbjson']);
+        expect(adopt).not.toHaveBeenCalled();
+        (binding as any)._studyApiAppRestore = pending();
+        reply([cue], [file.name], 'other-extension');
+        expect(adopt).not.toHaveBeenCalled();
+        (binding as any)._studyApiAppRestore = pending();
+        video.src = 'https://example.com/changed.mp4';
+        reply([cue]);
+        expect(adopt).not.toHaveBeenCalled();
+        binding.unbind();
     });
 
     it('applies playback modes through real video timing without overwriting the inactive rate', async () => {

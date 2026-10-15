@@ -1,3 +1,4 @@
+import { studyApiFiles, studyApiSerialized, studyPageKey } from '../services/study-api-subtitles';
 import { arrayEquals } from '@project/common/util';
 import { asbError, asbTrace } from '@project/common/util/log';
 import type {
@@ -226,6 +227,19 @@ export default class VideoDataSyncController {
             };
             this._dataReceivedEventTarget = eventTarget;
             eventTarget.addEventListener('asbplayer-synced-data', this._dataReceivedListener, false);
+        }
+
+        // Catalog is retrieved privately, independently of forged main-world discovery events.
+        if (studyPageKey(location.href)) {
+            const startUrl = location.href;
+            const catalog = await browser.runtime
+                .sendMessage({ kind: 'study-api-track-private', phase: 'catalog' })
+                .catch(() => undefined);
+            if (location.href !== startUrl) return;
+            if (Array.isArray(catalog) && catalog.length > 0) {
+                await this._setSyncedData({ error: '', basename: document.title, subtitles: catalog });
+                return;
+            }
         }
 
         asbTrace('subtitle/request', 'Dispatching site subtitle data request', {
@@ -720,7 +734,12 @@ export default class VideoDataSyncController {
         syncWithAsbplayerId?: string
     ) {
         const files: File[] = await Promise.all(
-            serializedFiles.map(async (f) => new File([base64ToBlob(f.base64, 'text/plain')], f.name))
+            serializedFiles.map(async (f) => {
+                const file = new File([base64ToBlob(f.base64, 'text/plain')], f.name);
+                const proof = studyApiSerialized.get(f);
+                if (proof) studyApiFiles.set(file, proof);
+                return file;
+            })
         );
         const startedAt = performance.now();
         const fileCount = files.length;
@@ -786,6 +805,32 @@ export default class VideoDataSyncController {
         }
 
         if (typeof url === 'string') {
+            // The page-supplied URL/language is only a selection hint. Fetch and verify against
+            // an independent HTTPS provider catalog in our background, then carry proof privately.
+            const pageKey = studyPageKey(location.href);
+            if (pageKey && !localFile && language && /^en(?:-|$)/.test(language)) {
+                const startUrl = location.href;
+                const verified = await browser.runtime
+                    .sendMessage({ kind: 'study-api-track-private', url, language })
+                    .catch(() => undefined);
+                if (location.href !== startUrl) throw new Error('Video changed during subtitle retrieval');
+                if (
+                    verified?.pageKey === pageKey &&
+                    verified.language === 'en' &&
+                    typeof verified.text === 'string' &&
+                    verified.text.length > 0 &&
+                    verified.text.length <= 2000000 &&
+                    ((pageKey.startsWith('youtube:') && extension === 'ytsrv3') ||
+                        (pageKey.startsWith('bilibili:') && extension === 'bbjson'))
+                ) {
+                    const f = {
+                        name: `${name}.${extension}`,
+                        base64: bufferToBase64(new TextEncoder().encode(verified.text).buffer),
+                    };
+                    studyApiSerialized.set(f, { pageKey, language: verified.language });
+                    return [f];
+                }
+            }
             const sourceKind = localFile ? 'local-object-url' : url.startsWith('data:') ? 'inline-data' : 'remote';
             const response = await fetch(url)
                 .catch(async (error) => {

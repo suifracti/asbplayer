@@ -1,3 +1,4 @@
+/** @jest-environment-options {"url":"https://www.youtube.com/watch?v=abcdefghijk"} */
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { ASB_TOKEN_SELECTED_CLASS, selectTokenInRoot } from '@project/common/annotations';
 import {
@@ -11,6 +12,7 @@ import { defaultSettings, TokenStatus } from '@project/common/settings';
 import type { SettingsProvider, SubtitlesWidthUnit } from '@project/common/settings';
 import SubtitleController from '@project/extension/src/controllers/subtitle-controller';
 import type Binding from '@project/extension/src/services/binding';
+import { studyApiFiles } from '../services/study-api-subtitles';
 
 describe('SubtitleController appearance rendering', () => {
     const controllers: SubtitleController[] = [];
@@ -41,6 +43,152 @@ describe('SubtitleController appearance rendering', () => {
         controllers.push(controller);
         return controller;
     };
+
+    it('privately retrieved API files attest own rendered cue without native TextTrack and invalidate on track replacement', async () => {
+        const controller = controllerForVideo();
+        const video = (controller as any).context.video;
+        document.body.append(video);
+        Object.defineProperty(video, 'textTracks', { value: [], configurable: true });
+        const seek = jest.fn(async (_target: number) => {});
+        (controller as any).context.seek = seek;
+        controller.setSubtitleSettings(defaultSettings);
+        controller.subtitles = [
+            {
+                text: 'Can you bank on him?',
+                start: 12750,
+                end: 15250,
+                originalStart: 12000,
+                originalEnd: 14500,
+                track: 0,
+                index: 0,
+            },
+        ];
+        controller.subtitleFileNames = ['English.ytsrv3'];
+        const file = new File(['provider bytes'], 'English.ytsrv3');
+        studyApiFiles.set(file, { pageKey: 'youtube:abcdefghijk', language: 'en' });
+        (controller as any).adoptStudyApiFiles?.([file], false);
+        const c = controller as any;
+        c._forceHideSubtitles = false;
+        c._displaySubtitles = true;
+        c.showingLoadedMessage = false;
+        controller.cacheHtml();
+        controller.playbackStateChanged({
+            timestampMs: 12750,
+            paused: true,
+            showingSubtitleIndexes: [0],
+            invisibleSubtitleIndexes: [],
+        });
+        const node = [...document.querySelectorAll<HTMLElement>('[data-asb-study-cue]')].find((n) =>
+            c.studyCueNodes.has(n)
+        )!;
+        expect(node).toBeDefined();
+        const hint = JSON.parse(node.dataset.asbStudyCue!);
+        expect(hint.language).toBe('en');
+        node.getClientRects = () => [{ left: 0, right: 100, top: 0, bottom: 20 }] as any;
+        const text = document.createTreeWalker(node, NodeFilter.SHOW_TEXT).nextNode()!;
+        const range = document.createRange();
+        range.setStart(text, 8);
+        range.setEnd(text, 15);
+        getSelection()!.removeAllRanges();
+        getSelection()!.addRange(range);
+        Object.assign(hint, { selectionStart: 8, selectionEnd: 15, word: 'bank on' });
+        expect(controller.confirmStudyCue(hint).ok).toBe(true);
+        expect((await controller.returnToStudyCue(hint)).ok).toBe(true);
+        expect(seek).toHaveBeenCalledWith(12750);
+        controller.offset(1000, true);
+        expect(c.studyLanguage(controller.subtitles[0])).toBe('en');
+        expect(controller.revalidateStudyCue(hint).ok).toBe(false);
+        controller.subtitles = [...controller.subtitles];
+        expect(controller.revalidateStudyCue(hint).ok).toBe(false);
+        controller.cacheHtml();
+        expect(c.studyLanguage(controller.subtitles[0])).toBeUndefined();
+    });
+
+    it('publishes actual offset-adjusted subtitle timing for the selected text, not original SRT time', () => {
+        const controller = controllerForVideo();
+        controller.setSubtitleSettings(defaultSettings);
+        controller.subtitles = [
+            {
+                text: 'A real sentence.',
+                start: 12500,
+                end: 16400,
+                originalStart: 10000,
+                originalEnd: 13900,
+                track: 0,
+                index: 0,
+            },
+        ];
+        controller.cacheHtml();
+        const cue = document.querySelector<HTMLElement>('[data-asb-study-start-ms]');
+        expect(cue?.dataset.asbStudyStartMs).toBe('12500');
+        expect(cue?.dataset.asbStudyEndMs).toBe('16400');
+        expect(cue?.textContent).toContain('A real sentence.');
+        controller.offset(5000, true);
+        const updated = document.querySelector<HTMLElement>('[data-asb-study-start-ms]');
+        expect(updated?.dataset.asbStudyStartMs).toBe('15000');
+        expect(updated?.dataset.asbStudyEndMs).toBe('18900');
+    });
+
+    it('publishes original cue ms, offset, clean text and bounded same-track neighbours', () => {
+        const controller = controllerForVideo();
+        controller.setSubtitleSettings(defaultSettings);
+        controller.subtitleFileNames = ['synthetic-en.srt', 'synthetic-ja.srt'];
+        controller.subtitles = [
+            { text: 'Before.', start: 10750, end: 11750, originalStart: 10000, originalEnd: 11000, track: 0, index: 0 },
+            {
+                text: 'Can you bank on him?',
+                start: 12750,
+                end: 15250,
+                originalStart: 12000,
+                originalEnd: 14500,
+                track: 0,
+                index: 1,
+            },
+            {
+                text: '別の字幕',
+                start: 12750,
+                end: 15250,
+                originalStart: 12000,
+                originalEnd: 14500,
+                track: 1,
+                index: 2,
+            },
+            { text: 'After.', start: 15750, end: 16750, originalStart: 15000, originalEnd: 16000, track: 0, index: 3 },
+        ];
+        controller.cacheHtml();
+        const cue = document.querySelector<HTMLElement>('[data-asb-subtitle-index="1"]');
+        const snapshot = JSON.parse(cue?.dataset.asbStudyCue ?? 'null');
+        expect(snapshot).toMatchObject({
+            version: 1,
+            text: 'Can you bank on him?',
+            trackIndex: 0,
+            cueIndex: 1,
+            originalStartMs: 12000,
+            originalEndMs: 14500,
+            subtitleOffsetMs: 750,
+            language: null,
+        });
+        expect(snapshot.adjacentCues.map((c: { text: string }) => c.text)).toEqual(['Before.', 'After.']);
+        expect(snapshot.trackName).toBe('synthetic-en.srt');
+        expect(JSON.stringify(snapshot)).not.toContain('別の字幕');
+    });
+
+    it('does not fabricate a native language or original timing from a filename/display time', () => {
+        const controller = controllerForVideo();
+        controller.setSubtitleSettings(defaultSettings);
+        controller.subtitleFileNames = ['English.en.srt'];
+        controller.subtitles = [{ text: 'Synthetic.', start: 12750, end: 15250, track: 0, index: 0 } as any];
+        controller.cacheHtml();
+        const snapshot = JSON.parse(
+            document.querySelector<HTMLElement>('[data-asb-subtitle-index]')?.dataset.asbStudyCue ?? 'null'
+        );
+        expect(snapshot).toMatchObject({
+            language: null,
+            originalStartMs: null,
+            originalEndMs: null,
+            subtitleOffsetMs: null,
+        });
+    });
 
     it('keeps cached image subtitle width responsive and rebuilds its ratio when image scale changes', () => {
         const controller = controllerForVideo();
@@ -417,5 +565,109 @@ describe('SubtitleController appearance rendering', () => {
 
     it('caps the subtitle width at the viewport width', () => {
         expect(containerWidthFor(2000, 'px')).toBe(`${Math.min(window.innerWidth, 2000)}px`);
+    });
+});
+
+describe('frozen attested discussion and return to original cue', () => {
+    it('survives normal playback without DOM selection, but refuses changed source/track and arbitrary seek', async () => {
+        const video = document.createElement('video');
+        document.body.append(video);
+        video.getBoundingClientRect = () => ({ left: 0, top: 0, width: 640, height: 360 }) as DOMRect;
+        const seek = jest.fn(async (_timestamp: number) => {});
+        const context = { video, registeredVideoSrc: 'https://example.com/video.mp4', currentTimeMs: 12750, seek };
+        const controller = new SubtitleController(
+            context as unknown as Binding,
+            { publishStatisticsSnapshot: async () => {} } as unknown as DictionaryProvider,
+            {
+                activeProfile: async () => undefined,
+                getAll: async () => defaultSettings,
+                getSingle: async (key: keyof typeof defaultSettings) => defaultSettings[key],
+            } as unknown as SettingsProvider
+        );
+        try {
+            class Cue {
+                constructor(
+                    public startTime: number,
+                    public endTime: number,
+                    public text: string
+                ) {}
+            }
+            Object.defineProperty(globalThis, 'VTTCue', { value: Cue, configurable: true });
+            Object.defineProperty(video, 'textTracks', {
+                value: [{ label: 'English', language: 'en', cues: [new Cue(12, 14.5, 'Can you bank on him?')] }],
+                configurable: true,
+            });
+            controller.setSubtitleSettings(defaultSettings);
+            controller.subtitleFileNames = ['English'];
+            controller.subtitles = [
+                {
+                    text: 'Can you bank on him?',
+                    start: 12750,
+                    end: 15250,
+                    originalStart: 12000,
+                    originalEnd: 14500,
+                    track: 0,
+                    index: 0,
+                },
+            ];
+            const c = controller as any;
+            c._forceHideSubtitles = false;
+            c._displaySubtitles = true;
+            c.showingLoadedMessage = false;
+            controller.cacheHtml();
+            controller.playbackStateChanged({
+                timestampMs: 12750,
+                paused: false,
+                showingSubtitleIndexes: [0],
+                invisibleSubtitleIndexes: [],
+            });
+            const node = [...document.querySelectorAll<HTMLElement>('[data-asb-study-cue]')].find((n) =>
+                c.studyCueNodes.has(n)
+            )!;
+            expect(node).toBeDefined();
+            node.getClientRects = () => [{ left: 0, right: 100, top: 0, bottom: 20 }] as any;
+            const text = document.createTreeWalker(node, NodeFilter.SHOW_TEXT).nextNode()!;
+            const range = document.createRange();
+            range.setStart(text, 8);
+            range.setEnd(text, 15);
+            getSelection()!.removeAllRanges();
+            getSelection()!.addRange(range);
+            const { adjacentCues, ...hint } = JSON.parse(node.dataset.asbStudyCue!);
+            Object.assign(hint, { selectionStart: 8, selectionEnd: 15, word: 'bank on' });
+            // Provider/API subtitles or external overlays are not native TextTrack proof.
+            const nativeTrack = { label: 'English', language: 'en', cues: [new Cue(12, 14.5, 'Can you bank on him?')] };
+            for (const tracks of [
+                [],
+                [{ ...nativeTrack, label: 'English.vtt' }],
+                [{ ...nativeTrack, language: 'ja' }],
+                [{ ...nativeTrack, cues: [new Cue(12, 14.6, 'Can you bank on him?')] }],
+            ]) {
+                Object.defineProperty(video, 'textTracks', { value: tracks, configurable: true });
+                expect(controller.confirmStudyCue(hint).ok).toBe(false);
+            }
+            Object.defineProperty(video, 'textTracks', { value: [nativeTrack], configurable: true });
+            expect(controller.confirmStudyCue(hint).ok).toBe(true);
+            getSelection()!.removeAllRanges();
+            node.remove();
+            controller.playbackStateChanged({
+                timestampMs: 20000,
+                paused: false,
+                showingSubtitleIndexes: [],
+                invisibleSubtitleIndexes: [],
+            });
+            expect(controller.revalidateStudyCue(hint).ok).toBe(true);
+            expect((await controller.returnToStudyCue(hint)).ok).toBe(true);
+            expect(seek).toHaveBeenCalledWith(12750);
+            expect((await controller.returnToStudyCue({ ...hint, originalStartMs: 10 })).ok).toBe(false);
+            expect(seek).toHaveBeenCalledTimes(1);
+            controller.subtitleFileNames = ['Other'];
+            expect(controller.revalidateStudyCue(hint).ok).toBe(false);
+            controller.subtitleFileNames = ['English'];
+            controller.subtitles = [...controller.subtitles];
+            expect(controller.revalidateStudyCue(hint).ok).toBe(false);
+        } finally {
+            controller.unbind();
+            document.body.replaceChildren();
+        }
     });
 });
